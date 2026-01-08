@@ -1,5 +1,5 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header,Label
+from textual.widgets import Footer, Header,Label,Static
 from textual.containers import HorizontalGroup, VerticalScroll
 import pandas as pd
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "GachaTracker"
 CONFIG_FILE = CONFIG_DIR / "config.json"
-CSV_FILE_TEST = "test_primos.csv"
+CSV_FILE_TEST = Path("test_primos.csv")
 
 class CurrencyManagement():
     pass
@@ -78,23 +78,38 @@ class DataManagement:
         
         self.save_spreadsheet(df)
 
-class GachaData(HorizontalGroup):
-    
+class LabelData(HorizontalGroup):
+
+
     def compose(self) -> ComposeResult:
        """ Create Text Form of Data """
-       yield Label("Date")
-       yield Label("Value")
-       yield Label("Total")
+       yield Label("Date ")
+       yield Label("  Primogems")
+       yield Label("  Total ")
+       
+class GachaData(Static):
+    def __init__(self,df,**kwargs):
+        super().__init__(**kwargs)
+
+        self.df = df
+
+    def _on_mount(self):
+        self.update(self.df.to_string(index=False,header=False))
 
 
 
 class Gacha_Tracker_App(App):
     BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","Add Today Currency Collecting","Add Currency"),("u","Update Today's Currency Entry","Update Entry")]
     dataManager = DataManagement(path=CSV_FILE_TEST)
-
+    
+    df = dataManager.load_spreadsheet()
+    
     def compose(self) -> ComposeResult:
         yield Header()
-        yield GachaData()
+
+        yield LabelData()
+        yield VerticalScroll(GachaData(self.df))
+
         yield Footer()
 
     def action_toggle_dark(self) -> None:
