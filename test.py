@@ -2,7 +2,7 @@ from datetime import date
 import pandas as pd
 from pathlib import Path
 
-path = Path("test_primoos.csv")
+path = Path("test_primos.csv")
 
 def add_entry_spreadsheet(value:int):
         df = load_spreadsheet(path)
@@ -64,5 +64,5 @@ def update_entry_spreadsheet(df:pd.DataFrame, path,value:int,entry_date: str | N
 df = load_spreadsheet(path=path)
 
 # update_entry_spreadsheet(df,path,900,"2026-01-09")
-
-print(df.head(3))
+print(df.head(0))
+print(df.to_string(header=False,index=False))

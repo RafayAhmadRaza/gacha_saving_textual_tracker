@@ -83,9 +83,9 @@ class LabelData(HorizontalGroup):
 
     def compose(self) -> ComposeResult:
        """ Create Text Form of Data """
-       yield Label("Date ")
-       yield Label("  Primogems")
-       yield Label("  Total ")
+       yield Label("Date",id="Date")
+       yield Label("Primo",id="Primo")
+       yield Label("Total ",id="Total")
        
 class GachaData(Static):
     def __init__(self,df,**kwargs):
@@ -99,16 +99,20 @@ class GachaData(Static):
 
 
 class Gacha_Tracker_App(App):
-    BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","Add Today Currency Collecting","Add Currency"),("u","Update Today's Currency Entry","Update Entry")]
+    CSS_PATH = "Label.tcss"
+
+    BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","Add Today Currency Collecting","Add Currency"),("u","Update Today's Currency Entry","Update Entry"),("v","View Entire History","View History")]
     dataManager = DataManagement(path=CSV_FILE_TEST)
     
     df = dataManager.load_spreadsheet()
     
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Label("Today's Entry: ")
+        yield Label("Previous Days Entry: ")
+        yield Label("Gain: ")
+        yield Label("Total: ")
 
-        yield LabelData()
-        yield VerticalScroll(GachaData(self.df))
 
         yield Footer()
 

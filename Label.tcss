@@ -1,0 +1,6 @@
+Screen{
+    layout: grid;
+    grid-size:3;
+    grid-gutter:3;
+    padding:2;
+}
