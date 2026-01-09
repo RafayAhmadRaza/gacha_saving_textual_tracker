@@ -64,5 +64,5 @@ def update_entry_spreadsheet(df:pd.DataFrame, path,value:int,entry_date: str | N
 df = load_spreadsheet(path=path)
 
 # update_entry_spreadsheet(df,path,900,"2026-01-09")
-print(df.head(0))
-print(df.to_string(header=False,index=False))
+# print(df.head(0))
+print(str(df["primogems"].iloc[-1]))

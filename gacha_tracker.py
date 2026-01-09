@@ -11,7 +11,8 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 CSV_FILE_TEST = Path("test_primos.csv")
 
 class CurrencyManagement():
-    pass
+    def Gain_Caculator(self,A:int,B:int):
+        return str(A+B)
 
 class ConfigManager():
     def load_config(path):
@@ -96,6 +97,37 @@ class GachaData(Static):
     def _on_mount(self):
         self.update(self.df.to_string(index=False,header=False))
 
+class Get_Previous_Entry(Static):
+    def __init__(self,df,**kwargs):
+        super().__init__(**kwargs)
+
+        self.df = df
+
+    def _on_mount(self):
+        self.update(str(self.df["primogems"].iloc[-2]))
+
+class Get_Today_Entry(Static):
+
+    def __init__(self,df,**kwargs):
+        super().__init__(**kwargs)
+
+        self.df = df
+
+    def _on_mount(self):
+        self.update(str(self.df["primogems"].iloc[-1]))
+
+class Get_Total_Primos(Static):
+    def __init__(self,df,**kwargs):
+        super().__init__(**kwargs)
+
+        self.df = df
+
+    def _on_mount(self):
+        self.update(str(self.df["total"].iloc[-1]))
+    
+    
+
+
 
 
 class Gacha_Tracker_App(App):
@@ -105,14 +137,24 @@ class Gacha_Tracker_App(App):
     dataManager = DataManagement(path=CSV_FILE_TEST)
     
     df = dataManager.load_spreadsheet()
-    
+    Gain = CurrencyManagement().Gain_Caculator(df["primogems"].iloc[-1],
+                                                df["primogems"].iloc[-2]
+                                                )
+
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Label("Today's Entry: ")
-        yield Label("Previous Days Entry: ")
-        yield Label("Gain: ")
-        yield Label("Total: ")
+        yield Label("Today's Entry: ",id="L1")
+        yield Get_Today_Entry(self.df)
 
+        yield Label("Previous Days Entry: ")
+        yield Get_Previous_Entry(self.df)
+
+        yield Label("Gain: ")
+        yield Label(str(self.Gain))
+
+
+        yield Label("Total: ")
+        yield Get_Total_Primos(self.df)
 
         yield Footer()
 
