@@ -1,27 +1,45 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header,Label,Static
-from textual.containers import HorizontalGroup, VerticalScroll
+from textual.widgets import Footer, Header,Label,Static,Input
+from textual.screen import ModalScreen
+from textual.containers import HorizontalGroup, VerticalScroll,Grid
 import pandas as pd
 import json
-from datetime import date
+from datetime import datetime, timedelta,date
+from textual.reactive import reactive
+
 from pathlib import Path
 
-CONFIG_DIR = Path.home() / ".config" / "GachaTracker"
-CONFIG_FILE = CONFIG_DIR / "config.json"
-CSV_FILE_TEST = Path("test_primos.csv")
+CSV_DIR = Path.home() / ".config" / "GachaTracker" / "PRIMOGEMS.CSV"
 
 class CurrencyManagement():
-    def Gain_Caculator(self,A:int,B:int):
+    def __init__(self,df,**kwargs):
+        super().__init__(**kwargs)
+        self.df = df
+        df['date'] = pd.to_datetime(df['date'])
+
+    def Gain_Caculator(self):
+        today  = datetime.today().date()
+
+        today_row = self.df[self.df["date"].dt.date == today]
+
+        if not today_row.empty:
+            A = today_row["primogems"].iloc[0]
+        else:
+            A = 0
+
+        yesterday  = datetime.today().date() - timedelta(days=1) 
+        yesterday_row = self.df[self.df["date"].dt.date == yesterday]
+
+        if not yesterday_row.empty:
+         B = yesterday["primogems"].iloc[0]
+        else:
+            B = 0
+
+        if A == 0:
+            return str(0+B)
+        
         return str(A+B)
 
-class ConfigManager():
-    def load_config(path):
-        if not path.exists():
-            return {}
-        return json.loads(path.read_text())
-    def save_config(path,data):
-        path.parent.mkdir(parents=True,exist_ok=True)
-        path.write_text(json.dumps(data,indent=2))
     
 class DataManagement:
 
@@ -29,21 +47,34 @@ class DataManagement:
         self.path = path
 
     def add_entry_spreadsheet(self,value:int):
-        df = self.load_spreadsheet()
-        today = date.today().isoformat()
-        last_total = df["total"].iloc[-1] if not df.empty else 0
+
         
-        new_total = last_total+value
+        df = self.load_spreadsheet()
+        df['date'] = pd.to_datetime(df['date']).dt.date
+        
+        today = datetime.today().date()
 
-        new_row = pd.DataFrame([{
-            "date":today,
-            "primogems":value,
-            "total":new_total,
-        }])
+        mask = df['date'] == today
 
-        df = pd.concat([df,new_row],ignore_index=True)
+        if not mask.any():
+        
+            last_total = df["total"].iloc[-1] if not df.empty else 0
+        
+        
+            new_total = last_total+value
 
-        self.save_spreadsheet(df)
+        
+            new_row = pd.DataFrame([{
+                "date":today,
+                "primogems":value,
+                "total":new_total,
+            }])
+
+            df = pd.concat([df,new_row],ignore_index=True)
+
+            self.save_spreadsheet(df)
+        else:
+            return
 
 
     
@@ -60,17 +91,20 @@ class DataManagement:
         df.to_csv(self.path)
 
 
-    def update_entry_spreadsheet(self,df:pd.DataFrame, value:int,entry_date:str | None=None):
-        target_date = entry_date or date.today().isoformat()
+    def update_entry_spreadsheet(self, value:int,entry_date:str | None=None):
+        df = self.load_spreadsheet()
+        df['date'] = pd.to_datetime(df['date']).dt.date
+        target_date = entry_date or datetime.today().date()
 
-        mask = df["date"] == target_date
+        mask = df['date'] == target_date
         if not mask.any():
-            raise ValueError(f"No Entry found for date {target_date}")
+            return
+      
         df.loc[mask,"primogems"] = value
 
         start_idx = df.index[mask][0]
 
-        prev_total = df.local[start_idx-1,"total"] if start_idx > 0 else 0 
+        prev_total = df.loc[start_idx-1,"total"] if start_idx > 0 else 0 
         running = prev_total
 
         for i in range(start_idx,len(df)):
@@ -95,16 +129,132 @@ class GachaData(Static):
         self.df = df
 
     def _on_mount(self):
-        self.update(self.df.to_string(index=False,header=False))
+        self.update(self.df.to_string(index=False))
+
+class Add_currency_screen(ModalScreen):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("Add Today's Currency"),
+            Input(placeholder="Enter your game's currency",type="integer")
+
+
+        )
+    def on_input_submitted(self, event:Input.Submitted) -> None:
+        value = event.value
+        number = int(value)
+        self.dismiss(number)
+
+
+class Update_currency_screen(ModalScreen):
+    BINDINGS = [("escape", "dismiss(None)", "Cancel")]
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("Update Today's Entry"),
+            Input(placeholder="Update Today's Entry",type="integer",id="amount"),
+            Label("Date Entry or Leave Empty (YY-MM-DD)"),
+            Input(placeholder="Enter Date, Leave Empty For today",id="date"),
+            id="dialog"
+
+
+        )
+    def on_input_submitted(self, event:Input.Submitted) -> None:
+        amount_input = self.query_one("#amount",Input)
+        date_input = self.query_one("#date",Input)
+
+        if event.input is not amount_input:
+            return
+        if not amount_input.value:
+            return
+        amount = int(amount_input.value)
+        date = date_input.value or None
+        self.dismiss((amount,date))
+
+
+
+class Already_done_screen(ModalScreen):
+    
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("Today's Entry Already Done!",id="msg"),
+            id='dialog'
+            
+)   
+        
+class History_Screen(ModalScreen):
+    
+    
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+
+    def compose(self) -> ComposeResult:
+        df = self.app.df
+        yield Grid(
+            VerticalScroll(GachaData(df),id="msg"),
+            id='dialog'
+            
+)   
+    
+class No_entry(ModalScreen): 
+    
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("No Entry Found For Date Entered",id="msg"),
+            id='dialog'
+            
+)   
 
 class Get_Previous_Entry(Static):
+    primogems = 0
     def __init__(self,df,**kwargs):
         super().__init__(**kwargs)
 
         self.df = df
+        df['date'] = pd.to_datetime(df['date'])
 
     def _on_mount(self):
-        self.update(str(self.df["primogems"].iloc[-2]))
+
+        yesterday  = datetime.today().date() - timedelta(days=1) 
+        yesterday_row = self.df[self.df["date"].dt.date == yesterday]
+        
+        if not yesterday_row.empty:
+            primogems = yesterday["primogems"].iloc[0]
+        else:
+            primogems = 0
+       
+
+        self.update(str(primogems))
 
 class Get_Today_Entry(Static):
 
@@ -112,9 +262,20 @@ class Get_Today_Entry(Static):
         super().__init__(**kwargs)
 
         self.df = df
+        df['date'] = pd.to_datetime(df['date'])
+
 
     def _on_mount(self):
-        self.update(str(self.df["primogems"].iloc[-1]))
+        today  = datetime.today().date()
+        
+        today_row = self.df[self.df["date"].dt.date == today]
+        
+        if not today_row.empty:
+            primogems = today_row["primogems"].iloc[0]
+        else:
+            primogems = 0
+
+        self.update(str(primogems))
 
 class Get_Total_Primos(Static):
     def __init__(self,df,**kwargs):
@@ -123,7 +284,7 @@ class Get_Total_Primos(Static):
         self.df = df
 
     def _on_mount(self):
-        self.update(str(self.df["total"].iloc[-1]))
+        self.update(str(self.df["total"].iloc[-1] if not self.df.empty else 0))
     
     
 
@@ -132,25 +293,28 @@ class Get_Total_Primos(Static):
 
 class Gacha_Tracker_App(App):
     CSS_PATH = "Label.tcss"
-
-    BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","Add Today Currency Collecting","Add Currency"),("u","Update Today's Currency Entry","Update Entry"),("v","View Entire History","View History")]
-    dataManager = DataManagement(path=CSV_FILE_TEST)
-    
+    TITLE="Gacha Tracking App"
+    BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","add_currency","Add Today's Currency"),("u","update_currency","Update Today's Entry"),("v","view_history","View History")]
+    dataManager = DataManagement(path=CSV_DIR)
+        
     df = dataManager.load_spreadsheet()
-    Gain = CurrencyManagement().Gain_Caculator(df["primogems"].iloc[-1],
-                                                df["primogems"].iloc[-2]
-                                                )
+    
+
+    Gain = reactive(0)
+    
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Label("Today's Entry: ",id="L1")
-        yield Get_Today_Entry(self.df)
+        self.today_value = Get_Today_Entry(self.df)
+        yield self.today_value
 
         yield Label("Previous Days Entry: ")
         yield Get_Previous_Entry(self.df)
 
+        self.gain_label = Label(str(self.Gain))
         yield Label("Gain: ")
-        yield Label(str(self.Gain))
+        yield self.gain_label
 
 
         yield Label("Total: ")
@@ -164,6 +328,65 @@ class Gacha_Tracker_App(App):
             "textual-dark" if self.theme == "textual-light" else "textual-light"
             
             )
+    def action_view_history(self):
+        self.push_screen(History_Screen())
+
+    def action_add_currency(self):
+        self.push_screen(Add_currency_screen(),self._add_currency_done)
+
+    def _add_currency_done(self,value:int|None):
+        if value is None:
+            return
+      
+        today = datetime.today().date()
+        today_entry_done = self.df["date"].dt.date == today
+        if not (self.df["date"].dt.date == today).any():
+            self.dataManager.add_entry_spreadsheet(value)
+            
+            self.df = self.dataManager.load_spreadsheet()
+
+            
+            self.Gain = CurrencyManagement(self.df).Gain_Caculator()
+            self.gain_label.update(str(self.Gain))
+            self.today_value.update(str(value))
+        else:
+            self.push_screen(Already_done_screen())
+
+    def action_update_currency(self):
+        self.push_screen(Update_currency_screen(),self._update_currency_done)
+
+    def _update_currency_done(self,value:int|None):
+        if value is None:
+            return
+        
+        amount, date = value
+      
+        date = datetime.today().date() if date == None else datetime.strptime(date, "%y-%m-%d").date()
+
+        mask = self.df["date"].dt.date == date
+       
+
+        if mask.any():
+            
+            self.dataManager.update_entry_spreadsheet(amount,date)
+            
+            self.df = self.dataManager.load_spreadsheet()
+
+            
+            self.Gain = CurrencyManagement(self.df).Gain_Caculator()
+            self.gain_label.update(str(self.Gain))
+            self.today_value.update(str(amount))
+            
+
+
+        else:
+            self.push_screen(No_entry())
+
+        
+
+        
+
+
 
 
 if __name__ == "__main__":
