@@ -249,7 +249,7 @@ class Get_Previous_Entry(Static):
         yesterday_row = self.df[self.df["date"].dt.date == yesterday]
         
         if not yesterday_row.empty:
-            primogems = yesterday["primogems"].iloc[0]
+            primogems = yesterday_row["primogems"].iloc[0]
         else:
             primogems = 0
        
