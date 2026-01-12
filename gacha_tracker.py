@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header,Label,Static,Input
 from textual.screen import ModalScreen
@@ -31,14 +32,14 @@ class CurrencyManagement():
         yesterday_row = self.df[self.df["date"].dt.date == yesterday]
 
         if not yesterday_row.empty:
-         B = yesterday["primogems"].iloc[0]
+         B = yesterday_row["primogems"].iloc[0]
         else:
             B = 0
 
         if A == 0:
             return str(0+B)
         
-        return str(A+B)
+        return str(A-B)
 
     
 class DataManagement:
@@ -58,10 +59,10 @@ class DataManagement:
 
         if not mask.any():
         
-            last_total = df["total"].iloc[-1] if not df.empty else 0
+
         
         
-            new_total = last_total+value
+            new_total = value
 
         
             new_row = pd.DataFrame([{
@@ -292,6 +293,7 @@ class Get_Total_Primos(Static):
 
 
 class Gacha_Tracker_App(App):
+    
     CSS_PATH = "Label.tcss"
     TITLE="Gacha Tracking App"
     BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","add_currency","Add Today's Currency"),("u","update_currency","Update Today's Entry"),("v","view_history","View History")]
