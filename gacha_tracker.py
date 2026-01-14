@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header,Label,Static,Input
+from textual.widgets import Footer, Header,Label,Static,Input,ProgressBar
 from textual.screen import ModalScreen
 from textual.containers import HorizontalGroup, VerticalScroll,Grid
 import pandas as pd
@@ -103,14 +103,7 @@ class DataManagement:
       
         df.loc[mask,"primogems"] = value
 
-        start_idx = df.index[mask][0]
-
-        prev_total = df.loc[start_idx-1,"total"] if start_idx > 0 else 0 
-        running = prev_total
-
-        for i in range(start_idx,len(df)):
-            running+=df.loc[i,"primogems"]
-            df.loc[i,"total"] = running
+        df.loc[mask,"total"] = value
         
         self.save_spreadsheet(df)
 
@@ -296,7 +289,13 @@ class Gacha_Tracker_App(App):
     
     CSS_PATH = "Label.tcss"
     TITLE="Gacha Tracking App"
-    BINDINGS = [("d","toggle_dark","Toggle dark mode"),("a","add_currency","Add Today's Currency"),("u","update_currency","Update Today's Entry"),("v","view_history","View History")]
+    BINDINGS = [("d","toggle_dark","Toggle dark mode"),
+                ("a","add_currency","Add Today's Currency"),
+                ("u","update_currency","Update Today's Entry"),
+                ("v","view_history","View History"),
+                ("g","set_goal","Set Goal"),
+                ("s","set_gacha_game","Set Gacha Game"),
+                ]
     dataManager = DataManagement(path=CSV_DIR)
         
     df = dataManager.load_spreadsheet()
@@ -322,6 +321,7 @@ class Gacha_Tracker_App(App):
         yield Label("Total: ")
         yield Get_Total_Primos(self.df)
 
+        yield ProgressBar()
         yield Footer()
 
     def action_toggle_dark(self) -> None:
