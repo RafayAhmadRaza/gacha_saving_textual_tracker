@@ -275,13 +275,24 @@ class Get_Total_Primos(Static):
     def __init__(self,df,**kwargs):
         super().__init__(**kwargs)
 
-        self.df = df
+    
 
     def _on_mount(self):
-        self.update(str(self.df["total"].iloc[-1] if not self.df.empty else 0))
+        self.update(str(self.app.total_primos))
+    
+    def watch_total_primos(self,value:int):
+        self.update(str(value))
     
     
+class FateCounter(Static):
+    def _on_mount(self):
+        value = self.app.total_primos
+        fates = value // 160
+        self.update(f"{fates}/{self.app.goal}")
 
+    def watch_total_primos(self,value:int):
+        fates = value//160
+        self.update(f"{fates}//{self.app.goal}")
 
 
 
@@ -302,9 +313,21 @@ class Gacha_Tracker_App(App):
     
 
     Gain = reactive(0)
-    
+    total_primos = reactive(0)
+    goal = 180
+
+    def on_mount(self)->None:
+        self.total_primos = (
+            self.df["total"].iloc[-1] if not self.df.empty else 0
+
+        )
+        fates=self.total_primos//160
+        self.progress_bar.update(progress=fates,total=self.goal)
 
     def compose(self) -> ComposeResult:
+        self.total_primos = (
+        self.df["total"].iloc[-1] if not self.df.empty else 0
+          )
         yield Header()
         yield Label("Today's Entry: ",id="L1")
         self.today_value = Get_Today_Entry(self.df)
@@ -320,8 +343,11 @@ class Gacha_Tracker_App(App):
 
         yield Label("Total: ")
         yield Get_Total_Primos(self.df)
+        self.progress_bar = ProgressBar(total=self.goal,show_eta=False)
 
-        yield ProgressBar()
+        yield self.progress_bar
+        self.fate_counter = FateCounter()
+        yield self.fate_counter
         yield Footer()
 
     def action_toggle_dark(self) -> None:
@@ -351,6 +377,10 @@ class Gacha_Tracker_App(App):
             self.Gain = CurrencyManagement(self.df).Gain_Caculator()
             self.gain_label.update(str(self.Gain))
             self.today_value.update(str(value))
+            self.total_primos = self.df["total"].iloc[-1]
+            fates = self.total_primos//160
+            self.progress_bar.update(progress=fates)
+        
         else:
             self.push_screen(Already_done_screen())
 
@@ -379,6 +409,9 @@ class Gacha_Tracker_App(App):
             self.gain_label.update(str(self.Gain))
             self.today_value.update(str(amount))
             
+            self.total_primos = self.df["total"].iloc[-1]
+            fates = self.total_primos//160
+            self.progress_bar.update(progress=fates)
 
 
         else:
